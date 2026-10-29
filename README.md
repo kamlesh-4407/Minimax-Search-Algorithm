@@ -58,11 +58,9 @@ Let's walk through the algorithm's execution with the full move tree, and show w
 <li>Because it is O's turn in both state 3 and 4, O will seek to find the minimum score, and given the choice between -10 and +10, both states 3 and 4 will yield -10.</li>
 <li>>Finally the score list for states 2, 3, and 4 are populated with +10, -10 and -10 respectively, and state 1 seeking to maximize the score will chose the winning move with score +10, state 2.</li
 </ul>
-##A Coded Version of Minimax Hopefully by now you have a rough sense of how th e minimax algorithm determines the best move to play. Let's examine my implementation of the algorithm to solidify the understanding:
 
-Here is the function for scoring the game:
-
-# @player is the turn taking player
+### Algorithm
+@player is the turn taking player
 def score(game)
     if game.win?(@player)
         return 10
@@ -76,40 +74,174 @@ Simple enough, return +10 if the current player wins the game, -10 if the other 
 
 And now the actual minimax algorithm; note that in this implementation a choice or move is simply a row / column address on the board, for example [0,2] is the top right square on a 3x3 board.
 
-def minimax(game)
-    return score(game) if game.over?
-    scores = [] # an array of scores
-    moves = []  # an array of moves
 
-    # Populate the scores array, recursing as needed
-    game.get_available_moves.each do |move|
-        possible_game = game.get_new_state(move)
-        scores.push minimax(possible_game)
-        moves.push move
-    end
 
-    # Do the min or the max calculation
-    if game.active_turn == @player
-        # This is the max calculation
-        max_score_index = scores.each_with_index.max[1]
-        @choice = moves[max_score_index]
-        return scores[max_score_index]
-    else
-        # This is the min calculation
-        min_score_index = scores.each_with_index.min[1]
-        @choice = moves[min_score_index]
-        return scores[min_score_index]
-    end
-end
+### Program
+```python
+import time
+
+class TicTacToe:
+    def __init__(self):
+        self.board = [['.' for _ in range(3)] for _ in range(3)]
+        self.current_player = 'X'
+    
+    def print_board(self):
+        for i in range(3):
+            print(' | '.join(self.board[i]))
+            if i < 2:
+                print('---------')
+    
+    def get_available_moves(self):
+        moves = []
+        for i in range(3):
+            for j in range(3):
+                if self.board[i][j] == '.':
+                    moves.append((i, j))
+        return moves
+    
+    def make_move(self, move, player):
+        i, j = move
+        if self.board[i][j] == '.':
+            self.board[i][j] = player
+            return True
+        return False
+    
+    def undo_move(self, move):
+        i, j = move
+        self.board[i][j] = '.'
+    
+    def check_winner(self, player):
+     
+        for i in range(3):
+            if all(self.board[i][j] == player for j in range(3)):
+                return True
+        
+      
+        for j in range(3):
+            if all(self.board[i][j] == player for i in range(3)):
+                return True
+        
+      
+        if all(self.board[i][i] == player for i in range(3)):
+            return True
+        if all(self.board[i][2-i] == player for i in range(3)):
+            return True
+        
+        return False
+    
+    def is_board_full(self):
+        return all(self.board[i][j] != '.' for i in range(3) for j in range(3))
+    
+    def game_over(self):
+        return self.check_winner('X') or self.check_winner('O') or self.is_board_full()
+
+class MinimaxAI:
+    def __init__(self, player):
+        self.player = player
+        self.opponent = 'O' if player == 'X' else 'X'
+    
+    def evaluate(self, game):
+        if game.check_winner(self.player):
+            return 10
+        elif game.check_winner(self.opponent):
+            return -10
+        else:
+            return 0
+    
+    def minimax(self, game, depth, is_maximizing):
+        if game.check_winner(self.player):
+            return 10 - depth
+        if game.check_winner(self.opponent):
+            return depth - 10
+        if game.is_board_full():
+            return 0
+        
+        if is_maximizing:
+            best_score = float('-inf')
+            for move in game.get_available_moves():
+                game.make_move(move, self.player)
+                score = self.minimax(game, depth + 1, False)
+                game.undo_move(move)
+                best_score = max(score, best_score)
+            return best_score
+        else:
+            best_score = float('inf')
+            for move in game.get_available_moves():
+                game.make_move(move, self.opponent)
+                score = self.minimax(game, depth + 1, True)
+                game.undo_move(move)
+                best_score = min(score, best_score)
+            return best_score
+    
+    def get_best_move(self, game):
+        best_score = float('-inf')
+        best_move = None
+        
+        available_moves = game.get_available_moves()
+        if not available_moves:
+            return None
+        
+        for move in available_moves:
+            game.make_move(move, self.player)
+            score = self.minimax(game, 0, False)
+            game.undo_move(move)
+            
+            if score > best_score:
+                best_score = score
+                best_move = move
+        
+        return best_move
+
+def main():
+    game = TicTacToe()
+    ai = MinimaxAI('X')
+    
+    print("Initial board:")
+    game.print_board()
+    print()
+    
+    while not game.game_over():
+        if game.current_player == 'X':
+            start_time = time.time()
+            move = ai.get_best_move(game)
+            end_time = time.time()
+            
+            print(f"Evaluation time: {end_time - start_time:.7f}s")
+            print(f"Recommended move: X = {move[0]}, Y = {move[1]}")
+            
+            x = int(input("Insert the X coordinate: "))
+            y = int(input("Insert the Y coordinate: "))
+            game.make_move((x, y), 'X')
+            game.current_player = 'O'
+        
+        else:
+            available_moves = game.get_available_moves()
+            if available_moves:
+                move = available_moves[0]
+                game.make_move(move, 'O')
+                game.current_player = 'X'
+        
+        print()
+        game.print_board()
+        print()
+    
+    if game.check_winner('X'):
+        print("X wins!")
+    elif game.check_winner('O'):
+        print("O wins!")
+    else:
+        print("It's a tie!")
+
+if __name__ == "__main__":
+    main()
+
+```
 
 <hr>
-<h2>Sample Input and Output</h2>
+<h2>Output</h2>
+<img width="1162" height="476" alt="Screenshot 2026-10-29 090911" src="https://github.com/user-attachments/assets/125afe21-8beb-42ed-96d7-3decb8b14a7f" />
 
-![image](https://github.com/natsaravanan/19AI405FUNDAMENTALSOFARTIFICIALINTELLIGENCE/assets/87870499/6b668685-8bcc-43c5-b5c2-ddd43f3da84a)
-![image](https://github.com/natsaravanan/19AI405FUNDAMENTALSOFARTIFICIALINTELLIGENCE/assets/87870499/8ca1b08a-8312-4ef5-89df-e69b7b2c3fa2)
-![image](https://github.com/natsaravanan/19AI405FUNDAMENTALSOFARTIFICIALINTELLIGENCE/assets/87870499/dc06427a-d4ce-43a1-95bd-9acfaefac323)
-![image](https://github.com/natsaravanan/19AI405FUNDAMENTALSOFARTIFICIALINTELLIGENCE/assets/87870499/a8a27e2a-6fd4-46a2-afb5-6d27b8556702)
-![image](https://github.com/natsaravanan/19AI405FUNDAMENTALSOFARTIFICIALINTELLIGENCE/assets/87870499/a2acb6a1-ed8e-42e5-8968-fe805e4b0255)
+<img width="491" height="551" alt="Screenshot 2026-10-29 090921" src="https://github.com/user-attachments/assets/f1bf4718-77e8-4324-89fc-11be9ea0df90" />
 
 <hr>
 <h2>Result:</h2>
